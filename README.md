@@ -108,3 +108,270 @@ Investigator UI
         |
         v
 Human Decision + Notes
+---
+
+## Why This Architecture?
+
+The prototype uses a hybrid deterministic + LLM design.
+
+The deterministic risk engine provides transparent and reproducible triage.
+
+The LLM is used for:
+
+- Evidence synthesis.
+- Natural-language explanations.
+- Investigator follow-up questions.
+
+The LLM is not responsible for independently determining whether fraud occurred.
+
+This separation makes the system easier to explain, easier to validate, and less likely to hallucinate.
+
+---
+
+## Risk Scoring
+
+The supplied synthetic dataset contains fraud-style indicators but does not contain ground-truth fraud labels.
+
+For that reason, the prototype uses a transparent heuristic scoring model rather than presenting the score as a trained fraud probability.
+
+Example indicators include:
+
+- Duplicate service billing.
+- Shared contact information with provider.
+- Service overlap with another provider.
+- Recent policy change.
+- High weekly visit frequency.
+- Large member-provider distance.
+- High weekend billing.
+- Claim amount significantly above peer average.
+- High round-dollar billing.
+
+### Prototype Risk Levels
+
+- HIGH: 60–100
+- MEDIUM: 30–59
+- LOW: 0–29
+
+In a production environment, these thresholds and weights would be calibrated using historical investigator outcomes, confirmed fraud labels, and business risk tolerances.
+
+---
+
+## AI Guardrails
+
+The AI is instructed to:
+
+1. Use only the supplied case evidence.
+2. Never claim that fraud definitely occurred.
+3. Clearly distinguish indicators from conclusions.
+4. Explicitly identify unavailable information.
+5. Avoid inventing provider, member, medical, policy, or criminal-history information.
+6. Keep the investigator responsible for the final decision.
+
+Example hallucination test:
+
+Question:
+
+> Has this provider ever been arrested?
+
+Expected response:
+
+> The available case data does not provide that information.
+
+---
+
+## Technology Stack
+
+- Python
+- Streamlit
+- Pandas
+- OpenAI API
+- python-dotenv
+
+---
+
+## Project Structure
+
+```text
+MANULIFE_AI_CASE_REVIEW/
+│
+├── data/
+│   └── sample_cases_synthetic.csv
+│
+├── app.py
+├── risk_engine.py
+├── ai_engine.py
+├── requirements.txt
+├── README.md
+├── .gitignore
+└── .env
+```
+
+The `.env` file contains the local API key and must not be committed to source control.
+
+---
+
+## Local Setup
+
+Follow the steps below to run the Junior AI Investigator prototype locally.
+
+### 1. Clone the repository
+
+```bash
+git clone <repository-url>
+```
+
+Then move into the project folder:
+
+```bash
+cd manulife-ai-case-review
+```
+
+### 2. Create a virtual environment
+
+Windows:
+
+```bash
+python -m venv venv
+```
+
+Activate it:
+
+```bash
+venv\Scripts\activate
+```
+
+macOS/Linux:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install required packages
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Configure the OpenAI API key
+
+Create a file named:
+
+```text
+.env
+```
+
+Add:
+
+```text
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+Replace `your_openai_api_key_here` with a valid OpenAI API key.
+
+Do not commit the `.env` file.
+
+### 5. Start the application
+
+```bash
+streamlit run app.py
+```
+
+### 6. Open the application
+
+Streamlit should automatically open the app in your browser.
+
+If it does not, open:
+
+```text
+http://localhost:8501
+```
+
+---
+
+## Suggested Demo Cases
+
+### High Risk
+
+`C1024`
+
+Use this case to demonstrate:
+
+- Multiple strong indicators.
+- High-risk prioritization.
+- AI assessment.
+- Recommended investigation steps.
+
+### Medium Risk
+
+`C1050`
+
+Use this case to demonstrate:
+
+- Mixed evidence.
+- Counter-evidence.
+- Appropriate uncertainty.
+
+### Low Risk
+
+`C1002`
+
+Use this case to demonstrate:
+
+- Limited suspicious evidence.
+- Lower-priority triage.
+- Standard validation recommendation.
+
+### Cross-Case Intelligence
+
+`C1001` and `C1031`
+
+Both contain the claim number:
+
+`LTC-2034786`
+
+This demonstrates queue-level relationship detection.
+
+---
+
+## Prototype Trade-Offs
+
+The prototype intentionally does not include:
+
+- Authentication.
+- Production databases.
+- Enterprise system integrations.
+- Deployment pipelines.
+- Multi-tenant architecture.
+- Complex multi-agent orchestration.
+
+The goal was to polish the core AI-assisted investigator workflow rather than build production infrastructure.
+
+---
+
+## Production Evolution
+
+With additional time and production data, I would add:
+
+- Historical investigator outcomes.
+- Confirmed fraud labels.
+- Calibrated risk probabilities.
+- Provider network analysis.
+- Policy and document retrieval.
+- Claim document ingestion.
+- Audit logging.
+- Prompt and model evaluation.
+- Drift monitoring.
+- Cost and latency monitoring.
+- Role-based access controls.
+- Enterprise claim-system integrations.
+
+---
+
+## Human-in-the-Loop Principle
+
+The AI is designed as a Junior AI Investigator.
+
+It performs the initial analytical work, organizes evidence, identifies uncertainty, and recommends investigative actions.
+
+The human investigator remains responsible for validating evidence and making the final case disposition.
