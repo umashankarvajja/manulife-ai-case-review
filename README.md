@@ -2,9 +2,11 @@
 
 ## AI-First Case Review for Fraud Investigators
 
-Junior AI Investigator is a working prototype designed to help insurance fraud investigators proactively triage referred claims before manual investigation begins.
+**Junior AI Investigator** is a working prototype designed to help insurance fraud investigators proactively triage referred claims before manual investigation begins.
 
-Instead of requiring an investigator to open every case and manually interpret individual fraud signals, the prototype reviews the complete referral queue, prioritizes cases using an explainable risk framework, generates grounded AI assessments, and allows the human investigator to interact with and override the AI.
+Instead of requiring an investigator to open every referral individually and manually interpret multiple fraud-style signals, the prototype reviews the referral queue, prioritizes cases using an explainable triage framework, generates grounded AI assessments, and allows the human investigator to interact with, validate, and override the AI.
+
+The application is intentionally designed as a **decision-support tool**, not an autonomous fraud determination system.
 
 ---
 
@@ -12,22 +14,52 @@ Instead of requiring an investigator to open every case and manually interpret i
 
 The core job-to-be-done is:
 
-> Help a fraud investigator quickly understand which referrals deserve immediate attention, why they were prioritized, what evidence supports the assessment, and what to investigate next.
+> Help a fraud investigator quickly understand which referrals deserve immediate attention, why they were prioritized, what evidence supports the assessment, what information is still missing, and what to investigate next.
 
-The AI assists the investigator but does not make a final fraud determination.
+The AI performs the initial analytical work, while the **human investigator remains responsible for the final case disposition**.
+
+---
+
+## Problem Being Solved
+
+In a traditional reactive workflow, investigators may need to:
+
+- Open referrals one at a time.
+- Manually review many claim and fraud-style indicators.
+- Decide independently which signals are meaningful.
+- Spend significant time investigating cases that eventually appear benign.
+- Repeat the same reasoning process across a large queue.
+
+Junior AI Investigator changes the workflow from **reactive case lookup** to **proactive AI-assisted triage**.
+
+Before the investigator begins reviewing a case, the prototype has already:
+
+- Evaluated the case indicators.
+- Assigned an explainable triage priority.
+- Identified the strongest signals.
+- Recommended a next action.
+- Prepared the case for AI-assisted follow-up questions.
 
 ---
 
 ## Key Features
 
-### Proactive Investigation Queue
+### 1. Proactive Investigation Queue
 
-- Loads all 50 synthetic referral cases.
-- Prioritizes cases as HIGH, MEDIUM, or LOW risk.
-- Sorts higher-risk cases to the top of the investigator queue.
-- Allows filtering by risk level.
+The application:
 
-### Explainable Triage
+- Loads all **50 synthetic referral cases** from the supplied CSV.
+- Evaluates every case before investigator review.
+- Prioritizes referrals as **HIGH, MEDIUM, or LOW** risk.
+- Sorts higher-priority cases to the top of the queue.
+- Allows investigators to filter the queue by risk level.
+- Allows investigators to select and drill into an individual case.
+
+This gives the investigator a prioritized starting point instead of a raw list of referrals.
+
+---
+
+### 2. Explainable Triage
 
 Each case includes:
 
@@ -35,67 +67,104 @@ Each case includes:
 - Risk level.
 - Triggered fraud-style indicators.
 - Recommended next action.
-- Raw source signals.
+- Full raw case signals.
 
-The risk score is a transparent triage heuristic and is not presented as a calibrated probability of fraud.
+The risk score is intentionally presented as a **transparent triage heuristic**, not as a calibrated probability that fraud occurred.
 
-### AI Case Assessment
+---
 
-The AI generates a concise investigator-facing assessment containing:
+### 3. AI-Generated Case Assessment
 
-- Case assessment.
-- Strongest evidence.
-- Counter-evidence and uncertainty.
-- Recommended next step.
+For a selected case, the investigator can generate an AI assessment containing:
 
-The LLM is instructed to use only the supplied synthetic case data and not invent missing facts.
+- **Assessment** — a concise explanation of the case priority.
+- **Strongest Evidence** — the most important indicators driving concern.
+- **Counter-Evidence / Uncertainty** — mitigating evidence and missing information.
+- **Recommended Next Step** — a concrete investigative action.
 
-### Investigator Q&A
+The LLM receives structured case evidence and is instructed to reason only from the available synthetic data.
 
-Investigators can ask natural-language follow-up questions such as:
+---
+
+### 4. Investigator Q&A
+
+Investigators can ask natural-language follow-up questions about the selected case.
+
+Example questions include:
 
 - What should I investigate first?
-- Why is this case high risk?
+- Why is this case considered high risk?
 - What evidence reduces suspicion?
 - What information is missing?
+- Which indicators are most important?
 
-If requested information is not available in the case data, the assistant explicitly states that the available data does not provide the information.
+The assistant is instructed to answer using only the available case evidence.
 
-### Human-in-the-Loop Review
+If the requested information is unavailable, it explicitly says so instead of inventing an answer.
+
+Example:
+
+**Question**
+
+> Has this provider ever been arrested?
+
+**Expected behavior**
+
+> The available case data does not provide that information.
+
+---
+
+### 5. Human-in-the-Loop Review
 
 The investigator can:
 
-- Accept the AI assessment.
-- Reject the AI assessment.
-- Mark the case as needing more investigation.
+- Mark the case as **Needs More Investigation**.
+- **Accept AI Assessment**.
+- **Reject AI Assessment**.
 - Add investigator notes.
+- Save the current review decision during the application session.
 
-Final investigative decisions always remain with the human investigator.
+The AI recommends and explains; the investigator decides.
 
-### Cross-Case Intelligence
+> Prototype note: investigator decisions and notes are currently stored only in the active Streamlit session and are not persisted to a production database.
 
-The prototype checks the current referral queue for repeated claim numbers.
+---
 
-For example, claim number `LTC-2034786` occurs in both:
+### 6. Cross-Case Intelligence
 
-- Case C1001
-- Case C1031
+The prototype also performs a simple queue-level relationship check.
 
-The system surfaces this relationship so that an investigator can review related referrals before making a final disposition.
+It detects when the same claim number appears in multiple referrals.
 
-A cross-case relationship is treated as an investigative signal, not proof of fraud.
+For example, claim number:
+
+`LTC-2034786`
+
+appears in:
+
+- `C1001`
+- `C1031`
+
+When either case is opened, the application surfaces the related referral and recommends reviewing the relationship before final disposition.
+
+This demonstrates that the assistant can provide value beyond analyzing cases independently.
+
+A repeated claim number is treated as an **investigative relationship signal**, not proof of fraud.
 
 ---
 
 ## Architecture
 
-The prototype uses a hybrid deterministic + LLM architecture.
+The prototype uses a **hybrid deterministic + LLM architecture**.
 
 ```text
-Synthetic Claims CSV
+50 Synthetic Claims
         |
         v
-Explainable Risk Engine
+CSV Ingestion with Pandas
+        |
+        v
+Explainable Risk / Evidence Engine
         |
         v
 Structured Case Evidence
@@ -103,96 +172,159 @@ Structured Case Evidence
         v
 Grounded LLM Reasoning
         |
-        v
-Investigator UI
-        |
-        v
-Human Decision + Notes
+        +----------------------+
+        |                      |
+        v                      v
+AI Case Assessment      Investigator Q&A
+        |                      |
+        +----------+-----------+
+                   |
+                   v
+          Investigator UI
+                   |
+                   v
+       Human Decision + Notes
+```
+
 ---
 
 ## Why This Architecture?
 
-The prototype uses a hybrid deterministic + LLM design.
+I deliberately chose a hybrid architecture rather than allowing an LLM to independently determine whether a referral is fraudulent.
 
-The deterministic risk engine provides transparent and reproducible triage.
+### Deterministic Layer
 
-The LLM is used for:
+The deterministic risk engine:
 
-- Evidence synthesis.
-- Natural-language explanations.
-- Investigator follow-up questions.
+- Applies explicit and inspectable rules.
+- Produces reproducible results.
+- Identifies exactly which signals influenced the score.
+- Creates structured evidence for the AI.
 
-The LLM is not responsible for independently determining whether fraud occurred.
+### LLM Layer
 
-This separation makes the system easier to explain, easier to validate, and less likely to hallucinate.
+The LLM is used for tasks where natural-language reasoning adds value:
+
+- Synthesizing evidence.
+- Explaining why a referral was prioritized.
+- Describing uncertainty.
+- Recommending investigative next steps.
+- Answering investigator follow-up questions.
+
+### Human Layer
+
+The investigator:
+
+- Reviews the evidence.
+- Challenges the AI.
+- Accepts or rejects its assessment.
+- Adds notes.
+- Makes the final decision.
+
+This separation improves **explainability, grounding, auditability, and human trust**.
 
 ---
 
 ## Risk Scoring
 
-The supplied synthetic dataset contains fraud-style indicators but does not contain ground-truth fraud labels.
+The supplied synthetic dataset contains fraud-style indicators but does **not** contain ground-truth fraud labels.
 
-For that reason, the prototype uses a transparent heuristic scoring model rather than presenting the score as a trained fraud probability.
+For that reason, the prototype does not claim that its score represents a trained probability of fraud.
 
-Example indicators include:
+Instead, it uses an intentionally transparent heuristic scoring system for **triage prioritization**.
 
-- Duplicate service billing.
-- Shared contact information with provider.
-- Service overlap with another provider.
-- Recent policy change.
-- High weekly visit frequency.
-- Large member-provider distance.
-- High weekend billing.
-- Claim amount significantly above peer average.
-- High round-dollar billing.
+### Prototype Scoring Rules
+
+| Indicator | Prototype Rule | Points |
+|---|---:|---:|
+| Duplicate service billed | Triggered | +20 |
+| Shared contact with provider | Triggered | +20 |
+| Service overlap with another provider | Triggered | +15 |
+| Recent policy change | Triggered | +10 |
+| Weekly visit frequency | Greater than 8 | +10 |
+| Member-provider distance | Greater than 50 miles | +10 |
+| Weekend billing ratio | Greater than 30% | +10 |
+| Amount vs. peer average | Greater than 40% above peers | +15 |
+| Round-dollar billing ratio | Greater than 40% | +10 |
+
+The score is capped at **100**.
 
 ### Prototype Risk Levels
 
-- HIGH: 60–100
-- MEDIUM: 30–59
-- LOW: 0–29
+- **HIGH:** 60–100
+- **MEDIUM:** 30–59
+- **LOW:** 0–29
 
-In a production environment, these thresholds and weights would be calibrated using historical investigator outcomes, confirmed fraud labels, and business risk tolerances.
+The dataset also includes other contextual information, such as prior claims, that can be shown to the investigator without necessarily contributing directly to the prototype score.
+
+### Production Approach
+
+In a production environment, the weights and thresholds would not be treated as fixed expert truth.
+
+They should be calibrated and validated using:
+
+- Historical investigation outcomes.
+- Confirmed fraud and non-fraud labels.
+- Business loss severity.
+- Investigator feedback.
+- False-positive and false-negative costs.
+- Precision/recall trade-offs.
+- Risk appetite and operational capacity.
 
 ---
 
-## AI Guardrails
+## AI Grounding and Guardrails
 
 The AI is instructed to:
 
 1. Use only the supplied case evidence.
-2. Never claim that fraud definitely occurred.
-3. Clearly distinguish indicators from conclusions.
-4. Explicitly identify unavailable information.
-5. Avoid inventing provider, member, medical, policy, or criminal-history information.
-6. Keep the investigator responsible for the final decision.
+2. Never state that fraud definitely occurred.
+3. Distinguish indicators from conclusions.
+4. Explicitly identify missing information.
+5. Avoid inventing provider history.
+6. Avoid inventing member history.
+7. Avoid inventing medical records.
+8. Avoid inventing criminal-history information.
+9. Avoid inventing policy information not present in the case.
+10. Keep the human investigator responsible for the final decision.
 
-Example hallucination test:
+The LLM receives the selected case attributes, calculated triage level, detected indicators, and recommended triage action as structured context.
 
-Question:
+---
+
+## Hallucination Guardrail Example
+
+A simple adversarial test was performed during prototype validation.
+
+**Question**
 
 > Has this provider ever been arrested?
 
-Expected response:
+The dataset does not contain criminal-history information.
+
+The assistant correctly responds that:
 
 > The available case data does not provide that information.
+
+This demonstrates the intended behavior when a question cannot be answered from the supplied evidence.
 
 ---
 
 ## Technology Stack
 
-- Python
-- Streamlit
-- Pandas
-- OpenAI API
-- python-dotenv
+- **Python** — application and reasoning logic.
+- **Streamlit** — lightweight investigator user interface.
+- **Pandas** — CSV ingestion and structured case processing.
+- **OpenAI API** — grounded case assessment and investigator Q&A.
+- **python-dotenv** — local environment-variable management.
+- **Git / GitHub** — version control and private repository delivery.
 
 ---
 
 ## Project Structure
 
 ```text
-MANULIFE_AI_CASE_REVIEW/
+manulife-ai-case-review/
 │
 ├── data/
 │   └── sample_cases_synthetic.csv
@@ -202,33 +334,57 @@ MANULIFE_AI_CASE_REVIEW/
 ├── ai_engine.py
 ├── requirements.txt
 ├── README.md
-├── .gitignore
-└── .env
+└── .gitignore
 ```
 
-The `.env` file contains the local API key and must not be committed to source control.
+A local `.env` file must also be created to store the API key:
+
+```text
+.env
+```
+
+The `.env` file is intentionally excluded from GitHub through `.gitignore` and must never be committed to source control.
+
+The local Python virtual environment (`venv/`) is also excluded from source control.
 
 ---
 
 ## Local Setup
 
-Follow the steps below to run the Junior AI Investigator prototype locally.
+Follow the steps below to run the Junior AI Investigator locally.
 
-### 1. Clone the repository
+### Prerequisites
+
+You will need:
+
+- Python 3 installed.
+- Git installed.
+- Access to this private GitHub repository.
+- A valid OpenAI API key with API access.
+
+---
+
+### 1. Clone the Private Repository
+
+Open a terminal and run:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/umashankarvajja/manulife-ai-case-review.git
 ```
 
-Then move into the project folder:
+Move into the repository:
 
 ```bash
 cd manulife-ai-case-review
 ```
 
-### 2. Create a virtual environment
+Because the repository is private, your GitHub account must first be granted access.
 
-Windows:
+---
+
+### 2. Create a Python Virtual Environment
+
+#### Windows
 
 ```bash
 python -m venv venv
@@ -240,20 +396,38 @@ Activate it:
 venv\Scripts\activate
 ```
 
-macOS/Linux:
+#### macOS / Linux
 
 ```bash
 python3 -m venv venv
+```
+
+Activate it:
+
+```bash
 source venv/bin/activate
 ```
 
-### 3. Install required packages
+---
+
+### 3. Install Required Packages
+
+Run:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure the OpenAI API key
+The project requires:
+
+- Streamlit
+- Pandas
+- OpenAI
+- python-dotenv
+
+---
+
+### 4. Configure the OpenAI API Key
 
 Create a file named:
 
@@ -261,27 +435,41 @@ Create a file named:
 .env
 ```
 
+in the project root.
+
 Add:
 
 ```text
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-Replace `your_openai_api_key_here` with a valid OpenAI API key.
+Replace:
 
-Do not commit the `.env` file.
+```text
+your_openai_api_key_here
+```
 
-### 5. Start the application
+with a valid OpenAI API key.
+
+Do not commit this file to GitHub.
+
+---
+
+### 5. Start the Application
+
+Run:
 
 ```bash
 streamlit run app.py
 ```
 
-### 6. Open the application
+---
 
-Streamlit should automatically open the app in your browser.
+### 6. Open the Application
 
-If it does not, open:
+Streamlit should automatically open the application in your browser.
+
+If it does not, manually open:
 
 ```text
 http://localhost:8501
@@ -291,87 +479,284 @@ http://localhost:8501
 
 ## Suggested Demo Cases
 
-### High Risk
+The following cases demonstrate the main behaviors of the prototype.
+
+### High-Risk Case
 
 `C1024`
 
-Use this case to demonstrate:
+Useful for demonstrating:
 
-- Multiple strong indicators.
-- High-risk prioritization.
-- AI assessment.
-- Recommended investigation steps.
+- HIGH risk prioritization.
+- Multiple mutually reinforcing indicators.
+- Explainable evidence.
+- AI-generated assessment.
+- Investigator Q&A.
+- Recommended escalation.
 
-### Medium Risk
+---
+
+### Medium-Risk Case
 
 `C1050`
 
-Use this case to demonstrate:
+Useful for demonstrating:
 
 - Mixed evidence.
+- Duplicate-service concerns.
 - Counter-evidence.
 - Appropriate uncertainty.
+- A recommendation for additional validation rather than an unsupported fraud conclusion.
 
-### Low Risk
+---
+
+### Low-Risk Case
 
 `C1002`
 
-Use this case to demonstrate:
+Useful for demonstrating:
 
-- Limited suspicious evidence.
-- Lower-priority triage.
+- Few or no strong fraud-style indicators.
+- LOW priority.
+- Counter-evidence.
 - Standard validation recommendation.
+- The AI's ability to avoid exaggerating risk.
+
+---
 
 ### Cross-Case Intelligence
 
 `C1001` and `C1031`
 
-Both contain the claim number:
+Both contain:
 
 `LTC-2034786`
 
-This demonstrates queue-level relationship detection.
+This is useful for demonstrating queue-level relationship detection.
+
+`C1001` appears low risk when evaluated independently, while the related `C1031` referral is high risk.
+
+The system surfaces the relationship for investigator review without treating the relationship itself as proof of fraud.
+
+---
+
+## Prototype Validation
+
+The working slice was manually tested across multiple scenarios.
+
+| Test | Case / Question | Expected Behavior |
+|---|---|---|
+| High-risk triage | `C1024` | HIGH priority with strong supporting evidence |
+| Medium-risk triage | `C1050` | MEDIUM priority with mixed evidence |
+| Low-risk triage | `C1002` | LOW priority without exaggerated suspicion |
+| Cross-case relationship | `C1001` / `C1031` | Repeated claim number is surfaced |
+| Grounded Q&A | "What should I investigate first?" | Evidence-based investigative recommendation |
+| Hallucination test | "Has this provider ever been arrested?" | States that the data does not provide this information |
+| Human override | Accept / Reject / Needs More Investigation | Investigator remains in control |
 
 ---
 
 ## Prototype Trade-Offs
 
-The prototype intentionally does not include:
+The prototype intentionally does **not** include:
 
 - Authentication.
+- Role-based access control.
 - Production databases.
-- Enterprise system integrations.
+- Persistent investigator-note storage.
+- Enterprise claim-system integrations.
+- External provider intelligence.
+- Public-record searches.
 - Deployment pipelines.
-- Multi-tenant architecture.
+- Multi-tenant infrastructure.
 - Complex multi-agent orchestration.
 
-The goal was to polish the core AI-assisted investigator workflow rather than build production infrastructure.
+These were deliberately excluded so that the prototype could focus on the core AI-first investigator experience.
+
+The design principle was:
+
+> Polish a narrow, explainable, useful workflow rather than partially implementing many production features.
+
+---
+
+## Why Not a Multi-Agent System?
+
+A multi-agent architecture was intentionally not used for this working slice.
+
+The supplied input is small, structured, and narrow in scope. Adding multiple specialized agents would increase:
+
+- Complexity.
+- Latency.
+- Cost.
+- Debugging difficulty.
+- Failure modes.
+
+without providing enough additional value for the 50-case prototype.
+
+The current architecture keeps deterministic triage separate from language-model reasoning and is easier to explain and validate.
+
+With richer enterprise data and external tools, specialized agents or tool-calling workflows could become appropriate.
 
 ---
 
 ## Production Evolution
 
-With additional time and production data, I would add:
+With additional time, historical data, and enterprise integrations, I would extend the system with:
+
+### Data and Investigation Context
 
 - Historical investigator outcomes.
 - Confirmed fraud labels.
-- Calibrated risk probabilities.
-- Provider network analysis.
-- Policy and document retrieval.
-- Claim document ingestion.
-- Audit logging.
-- Prompt and model evaluation.
-- Drift monitoring.
-- Cost and latency monitoring.
-- Role-based access controls.
-- Enterprise claim-system integrations.
+- Provider history.
+- Member history.
+- Provider network relationships.
+- Claim documents.
+- Medical authorization data.
+- Policy and coverage information.
+- Prior related referrals.
+
+### AI and Retrieval
+
+- Policy/document retrieval.
+- Claim-document ingestion.
+- Tool calling.
+- Provider network queries.
+- Case-history retrieval.
+- Structured evidence citations.
+
+### Model Evaluation
+
+- Precision and recall measurement.
+- False-positive analysis.
+- False-negative analysis.
+- Risk calibration.
+- Prompt evaluation.
+- Hallucination testing.
+- Regression test suites.
+- Investigator usefulness metrics.
+
+### Governance and Trust
+
+- Complete audit logging.
+- Model/version tracking.
+- Prompt/version tracking.
+- Explainability records.
+- Human override tracking.
+- Responsible-AI controls.
+- Access controls.
+
+### Operations
+
+- Persistent database storage.
+- Enterprise authentication.
+- API-based claim-system integrations.
+- Cost monitoring.
+- Latency monitoring.
+- Model drift monitoring.
+- Observability.
+- Production deployment infrastructure.
+
+---
+
+## Scaling Beyond 50 Cases
+
+For the prototype, all 50 cases can be processed locally.
+
+At production scale, I would separate the system into asynchronous stages:
+
+```text
+Incoming Referral Queue
+        |
+        v
+Batch / Event Processing
+        |
+        v
+Risk Feature Computation
+        |
+        v
+AI Assessment Generation
+        |
+        v
+Structured Assessment Store
+        |
+        v
+Investigator Application
+```
+
+Assessments could be generated before the investigator begins work so that investigators open an already-prioritized queue rather than waiting for real-time model calls.
+
+Additional production considerations would include:
+
+- Caching.
+- Parallel processing.
+- Rate limiting.
+- Retry handling.
+- Structured output validation.
+- Model fallback strategies.
+- Cost controls.
+- Auditability.
+
+---
+
+## Key Design Principles
+
+The prototype was built around five principles:
+
+### 1. Proactive, Not Reactive
+
+The AI reviews the queue before the investigator begins manual case review.
+
+### 2. Explainable, Not Opaque
+
+Investigators can see exactly which indicators influenced prioritization.
+
+### 3. Grounded, Not Imaginative
+
+The LLM is instructed to stay within the supplied evidence and explicitly acknowledge missing information.
+
+### 4. Assistive, Not Autonomous
+
+The AI recommends investigative actions but does not determine that fraud occurred.
+
+### 5. Human-Controlled
+
+Investigators can challenge, override, annotate, and ultimately decide what happens to a case.
 
 ---
 
 ## Human-in-the-Loop Principle
 
-The AI is designed as a Junior AI Investigator.
+The AI is designed as a **Junior AI Investigator**.
 
-It performs the initial analytical work, organizes evidence, identifies uncertainty, and recommends investigative actions.
+It performs the initial analytical work by:
 
-The human investigator remains responsible for validating evidence and making the final case disposition.
+- Organizing case evidence.
+- Identifying important indicators.
+- Highlighting uncertainty.
+- Generating a concise assessment.
+- Recommending investigative actions.
+- Answering grounded follow-up questions.
+- Surfacing simple cross-case relationships.
+
+The human investigator remains responsible for:
+
+- Validating evidence.
+- Obtaining missing documentation.
+- Challenging unsupported conclusions.
+- Accepting or rejecting AI recommendations.
+- Determining the final case disposition.
+
+The intended relationship is:
+
+```text
+AI prepares the investigation.
+Human investigator owns the decision.
+```
+
+---
+
+## Disclaimer
+
+This prototype uses entirely synthetic data and is intended only to demonstrate product thinking, AI system design, explainability, grounding, and human-in-the-loop case review.
+
+The prototype risk scores are illustrative triage heuristics and must not be interpreted as validated fraud probabilities or production fraud determinations.
